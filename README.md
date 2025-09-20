@@ -82,6 +82,36 @@ Finally run the client:
 
 Within the client, you can select the appropriate input and output device that audio will be piped through.
 
+### Desktop GUI (Danish → Russian)
+
+The repository also contains a lightweight Tkinter desktop application that wraps the
+existing realtime pipeline and runs everything locally (microphone → Whisper →
+machine translation → SpeechT5 TTS). The app lets you pick the microphone and
+Whisper model, shows intermediate transcripts, counts processed phrases and
+displays latency statistics.
+
+1. Create and activate a Python 3.11 environment (see the server installation instructions above).
+2. Install the project requirements:
+   ```bash
+   pip install -r server/requirements.txt
+   pip install -r client/requirements.txt
+   ```
+   Tkinter is bundled with standard Windows and macOS Python distributions. On
+   some Linux distributions you may need to install it separately (for example
+   `sudo apt-get install python3-tk`).
+3. Launch the GUI:
+   ```bash
+   python -m client.gui_app
+   ```
+4. In the window that opens:
+   - choose the input microphone from the drop-down list,
+   - select the Whisper model size (`base`, `small`, or `medium`),
+   - press **Start** to begin the Danish → Russian speech translation pipeline.
+5. Use the **Stop** button to end the session. The interface shows the latest
+   Danish transcription, the Russian translation, the “audible” microphone
+   indicator, phrase counter and average latency (time between the end of a
+   phrase and playback of the translated audio).
+
 ### Notebooks for Testing
 
 ## speech.ipynb
