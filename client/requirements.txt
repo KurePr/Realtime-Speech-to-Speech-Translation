@@ -1,2 +1,1 @@
 sounddevice
-speech_recognition

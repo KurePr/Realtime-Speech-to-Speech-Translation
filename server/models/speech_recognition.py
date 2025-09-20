@@ -1,13 +1,12 @@
 """ Speech Recognition using OpenAI's Whisper model with real-time processing"""
-import io
 import time
 import threading
 from queue import Queue
 from datetime import datetime, timedelta
+
+import numpy as np
 import torch
 import whisper
-import soundfile as sf
-import speech_recognition as sr
 
 class SpeechRecognitionModel:
     """ Initalize this class with a data_queue. For all the audio you want to process, 
@@ -117,28 +116,48 @@ class SpeechRecognitionModel:
 
     def __transcribe_audio__(self, sample_rate, sample_width, phrase_complete):
         try:
-            audio_data = sr.AudioData(self.last_sample, sample_rate, sample_width)
-            wav_data = io.BytesIO(audio_data.get_wav_data())
-            with sf.SoundFile(wav_data, mode='r') as sound_file:
-                audio = sound_file.read(dtype='float32')
-                start_time = time.time()
+            audio = self.__bytes_to_float_array__(self.last_sample, sample_width)
+            if audio.size == 0:
+                return
 
-                result = self.audio_model.transcribe(audio,
-                                                     fp16=torch.cuda.is_available(),
-                                                     **self.decoding_options)
-                end_time = time.time()
+            start_time = time.time()
 
-                text = result['text'].strip()
-                if text:
-                    self.generation_callback({"add": phrase_complete,
-                                              "text": text,
-                                              "transcribe_time": end_time - start_time})
-                    if phrase_complete and self.recent_transcription and self.current_client:
-                        print(f"Phrase complete: {self.recent_transcription}")
-                        self.final_callback(self.recent_transcription, self.current_client)
-                    self.recent_transcription = text
+            result = self.audio_model.transcribe(audio,
+                                                 fp16=torch.cuda.is_available(),
+                                                 **self.decoding_options)
+            end_time = time.time()
+
+            text = result['text'].strip()
+            if text:
+                self.generation_callback({"add": phrase_complete,
+                                          "text": text,
+                                          "transcribe_time": end_time - start_time})
+                if phrase_complete and self.recent_transcription and self.current_client:
+                    print(f"Phrase complete: {self.recent_transcription}")
+                    self.final_callback(self.recent_transcription, self.current_client)
+                self.recent_transcription = text
         except Exception as e:
             print(f"Error during transcription: {e}")
+
+    def __bytes_to_float_array__(self, data: bytes, sample_width: int) -> np.ndarray:
+        if not data:
+            return np.array([], dtype=np.float32)
+
+        dtype_map = {
+            2: np.int16,
+            4: np.int32,
+        }
+
+        if sample_width not in dtype_map:
+            raise ValueError(f"Unsupported sample width: {sample_width}")
+
+        dtype = dtype_map[sample_width]
+        audio_int = np.frombuffer(data, dtype=dtype)
+        if audio_int.size == 0:
+            return np.array([], dtype=np.float32)
+
+        max_val = np.iinfo(dtype).max
+        return audio_int.astype(np.float32) / max_val
 
     def __del__(self):
         self.stop()
